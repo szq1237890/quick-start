@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import PyQt5; print\\('PyQt5 OK'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -c ' *)",
+      "Bash(pip show *)",
+      "Bash(pyinstaller *)",
+      "Bash(curl *)",
+      "Bash(gh auth *)",
+      "Bash(python *)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
