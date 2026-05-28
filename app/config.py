@@ -1,8 +1,16 @@
 import json
 import uuid
+import sys
 import os
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.json")
+
+def _get_config_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.dirname(__file__))
+
+
+CONFIG_FILE = os.path.join(_get_config_dir(), "config.json")
 
 
 def _default_config():

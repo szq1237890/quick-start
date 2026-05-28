@@ -51,7 +51,8 @@ def _find_exe_from_registry(subkey, name):
     if install_loc and isinstance(install_loc, str):
         install_loc = _clean_path(install_loc)
         if os.path.isfile(install_loc) and install_loc.lower().endswith(".exe"):
-            return install_loc
+            if not _is_uninstaller(install_loc):
+                return install_loc
         if os.path.isdir(install_loc):
             exe = _find_exe_in_dir(install_loc, name)
             if exe:
@@ -62,30 +63,44 @@ def _find_exe_from_registry(subkey, name):
     if display_icon and isinstance(display_icon, str):
         icon_path = _extract_path_from_icon(display_icon)
         if icon_path and os.path.isfile(icon_path) and icon_path.lower().endswith(".exe"):
-            return icon_path
+            if not _is_uninstaller(icon_path):
+                return icon_path
 
-    # 3. Try UninstallString
+    # 3. Try UninstallString (skip uninstallers)
     uninstall_str = _get_value(subkey, "UninstallString", "")
     if uninstall_str and isinstance(uninstall_str, str):
         exe_path = _extract_exe_from_string(uninstall_str)
-        if exe_path and os.path.isfile(exe_path):
+        if exe_path and os.path.isfile(exe_path) and not _is_uninstaller(exe_path):
             return exe_path
 
-    # 4. Try QuietUninstallString
+    # 4. Try QuietUninstallString (skip uninstallers)
     quiet_uninstall = _get_value(subkey, "QuietUninstallString", "")
     if quiet_uninstall and isinstance(quiet_uninstall, str):
         exe_path = _extract_exe_from_string(quiet_uninstall)
-        if exe_path and os.path.isfile(exe_path):
+        if exe_path and os.path.isfile(exe_path) and not _is_uninstaller(exe_path):
             return exe_path
 
     # 5. Try ModifyPath
     modify_path = _get_value(subkey, "ModifyPath", "")
     if modify_path and isinstance(modify_path, str):
         exe_path = _extract_exe_from_string(modify_path)
-        if exe_path and os.path.isfile(exe_path):
+        if exe_path and os.path.isfile(exe_path) and not _is_uninstaller(exe_path):
             return exe_path
 
     return None
+
+
+def _is_uninstaller(exe_path):
+    """Check if the exe is likely an uninstaller or non-main program."""
+    exe_name = os.path.basename(exe_path).lower()
+    # Keywords indicating uninstaller, installer, or helper programs
+    skip_keywords = [
+        "uninstall", "uninst", "remove", "setup",
+        "install", "crash", "feedback", "helper",
+        "update", "repair", "config", "agent",
+        "service", "handler", "bridge", "transcode"
+    ]
+    return any(keyword in exe_name for keyword in skip_keywords)
 
 
 def _clean_path(path):
@@ -137,11 +152,18 @@ def _find_exe_in_dir(dir_path, app_name=None):
         exes = [f for f in os.listdir(dir_path) if f.lower().endswith(".exe")]
         if not exes:
             return None
+        # Filter out uninstallers
+        non_uninstaller_exes = [f for f in exes if not _is_uninstaller(f)]
+        if not non_uninstaller_exes:
+            return None  # All exes are uninstallers/helpers
+        exes = non_uninstaller_exes
         # If app_name provided, try to find matching exe
         if app_name:
             app_name_lower = app_name.lower()
+            # First try exact match (app name is substring of exe name)
             for exe in exes:
-                if app_name_lower in exe.lower():
+                exe_name = os.path.splitext(exe)[0].lower()
+                if app_name_lower in exe_name or exe_name in app_name_lower:
                     return os.path.join(dir_path, exe)
         # Return first exe found
         return os.path.join(dir_path, exes[0])
